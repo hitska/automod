@@ -5,6 +5,8 @@ import re
 from os.path import dirname, abspath
 from time import sleep
 
+from html.parser import HTMLParser
+
 
 script_dir = dirname(abspath(__file__))
 settings_filename = f"{script_dir}/settings.json"
@@ -12,11 +14,11 @@ rules_filename = f"{script_dir}/rules.json"
 
 
 class Post:
-    def __init__(self, id='', name='', trip='', text=''):
-        self.id = id
-        self.name = name
-        self.trip = trip
-        self.text = text
+    def __init__(self):
+        self.id = 0
+        self.name = ''
+        self.trip = ''
+        self.text = ''
 
 
 def load_settings():
@@ -40,32 +42,72 @@ def delete_post(post_id, settings):
     requests.post(settings['post_addr'], data=data)
 
 
+def contain_values(attrs, req_attr_key, req_attr_values):
+    if not req_attr_key in attrs:
+        return False
+
+    values = attrs[req_attr_key].split(' ')
+
+    for required_value in req_attr_values:
+        if required_value not in values:
+            return False
+
+    return True
+
+
+class ThreadParser(HTMLParser):
+    def __init__(self):
+        HTMLParser.__init__(self)
+        self.posts = []
+        self.deepness = 0
+        self.post = None
+        self.post_deepness = -1
+        self.reading_attr = None
+        self.counting_tags = ['div', 'span']
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self.counting_tags:
+            self.deepness = self.deepness + 1
+
+        attrs = dict(attrs)
+
+        if not self.post:
+            if tag == 'div':
+                if contain_values(attrs, 'class', ['post', 'reply']):
+                    self.post = Post()
+                    self.post_deepness = self.deepness
+                    self.posts.append(self.post)
+        else:
+            # Мы внутри поста
+            if tag == 'a':
+                if 'id' in attrs and contain_values(attrs, 'class', ['post_anchor']):
+                    self.post.id = int(attrs['id'])
+            if tag == 'span':
+                if contain_values(attrs, 'class', ['name']):
+                    self.reading_attr = 'name'
+                if contain_values(attrs, 'class', ['trip']):
+                    self.reading_attr = 'trip'
+
+    def handle_endtag(self, tag):
+        if tag in self.counting_tags:
+            if self.post and self.deepness == self.post_deepness:
+                self.post = None
+                self.post_deepness = -1
+
+            self.deepness = self.deepness - 1
+            self.reading_attr = None
+
+    def handle_data(self, data):
+        if self.reading_attr == 'name':
+            self.post.name = data
+        if self.reading_attr == 'trip':
+            self.post.trip = data
+
+
 def parse_thread(html):
-    post_pattern = r'<\s*div\s+class\s*=\s*"post\s+reply"\s*id\s*=\s*"reply_(.*?)"\s*>(.*?)<\s*\/\s*div\s*>\s*<\s*br\s*\/\s*>'
-    posts = []
-
-    matches = re.findall(post_pattern, html)
-    for match in matches:
-        post = Post(match[0])
-
-        body_pattern = r'<\s*div\s+class\s*=\s*"body"\s*>(.*?)<\s*\/\s*div\s*>'
-        body = re.search(body_pattern, match[1])
-        if body:
-            post.text = body.group(1)
-
-        name_pattern = r'<\s*span\s+class\s*=\s*"name"\s*>(.*?)<\s*\/\s*span\s*>'
-        name = re.search(name_pattern, match[1])
-        if name:
-            post.name = name.group(1)
-
-        trip_pattern = r'<\s*span\s+class\s*=\s*"trip"\s*>(.*?)<\s*\/\s*span\s*>'
-        trip = re.search(trip_pattern, match[1])
-        if trip:
-            post.trip = trip.group(1)
-
-        posts.append(post)
-
-    return posts
+    parser = ThreadParser()
+    parser.feed(html)
+    return parser.posts
 
 
 class Bot:
@@ -95,6 +137,8 @@ class Bot:
             return True
         if post.trip in self.rules['whitelist']:
             return True
+        if post.id <= self.rules['last_post']:
+            return True
         return False
 
     def delete_post(self, post):
@@ -105,15 +149,18 @@ def main():
     settings = load_settings()
     bot = Bot(rules_filename, settings)
 
+    print("Working...")
+
     while True:
         try:
             response = requests.get(settings['thread'])
             if response:
                 posts = parse_thread(response.content.decode("utf-8"))
                 bot.update_posts(posts)
-        except:
-            pass
+        except Exception as e:
+            print(getattr(e, 'message', repr(e)))
 
         sleep(settings['timeout'])
+
 
 main()
