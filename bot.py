@@ -1,11 +1,19 @@
 import requests
+from thread_parser import ThreadParser
 
 
 class Bot:
-    def __init__(self, rules, settings):
+    def __init__(self, web_provider, rules, settings):
+        self._web_provider = web_provider
         self._settings = settings
         self._rules = rules
         self._posts = {}
+
+    def update(self):
+        thread_url = self._settings['thread']
+        page_html = self._web_provider.get(thread_url)
+        posts = _parse_thread(page_html)
+        self.update_posts(posts)
 
     def update_posts(self, posts):
         for post in posts:
@@ -26,10 +34,10 @@ class Bot:
         return False
 
     def delete_post(self, post):
-        delete_post(post.id, self._settings)
+        _delete_post(post.id, self._settings)
 
 
-def delete_post(post_id, settings):
+def _delete_post(post_id, settings):
     data = {
         'board': 'rf',
         f'delete_{post_id}': 'on',
@@ -42,3 +50,9 @@ def delete_post(post_id, settings):
     response = requests.post(settings['post_addr'], data=data)
     if not response:
         print("Couldn't delete post:", response.status_code)
+
+
+def _parse_thread(html):
+    parser = ThreadParser()
+    parser.feed(html)
+    return parser.posts

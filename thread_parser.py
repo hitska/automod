@@ -20,19 +20,19 @@ class ThreadParser(HTMLParser):
 
         if not self.post:
             if tag == 'div':
-                if contain_values(attrs, 'class', ['post', 'reply']):
+                if _contain_values(attrs, 'class', ['post', 'reply']):
                     self.post = Post()
                     self.post_deepness = self.deepness
                     self.posts.append(self.post)
         else:
             # Parsing the current post content...
             if tag == 'a':
-                if 'id' in attrs and contain_values(attrs, 'class', ['post_anchor']):
+                if 'id' in attrs and _contain_values(attrs, 'class', ['post_anchor']):
                     self.post.id = int(attrs['id'])
             if tag == 'span':
-                if contain_values(attrs, 'class', ['name']):
+                if _contain_values(attrs, 'class', ['name']):
                     self.reading_attr = 'name'
-                if contain_values(attrs, 'class', ['trip']):
+                if _contain_values(attrs, 'class', ['trip']):
                     self.reading_attr = 'trip'
 
     def handle_endtag(self, tag):
@@ -51,7 +51,7 @@ class ThreadParser(HTMLParser):
             self.post.trip = data
 
 
-def contain_values(attrs, req_attr_key, req_attr_values):
+def _contain_values(attrs, req_attr_key, req_attr_values):
     if req_attr_key not in attrs:
         return False
 
