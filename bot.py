@@ -21,7 +21,6 @@ class Bot:
                 if self.is_post_allowed(post):
                     self._posts[post.id] = post
                 else:
-                    print("Trying to delete post: ", post)
                     self.delete_post(post)
 
     def is_post_allowed(self, post):
@@ -34,22 +33,7 @@ class Bot:
         return False
 
     def delete_post(self, post):
-        _delete_post(post.id, self._settings)
-
-
-def _delete_post(post_id, settings):
-    data = {
-        'board': 'rf',
-        f'delete_{post_id}': 'on',
-        'filenum': '0',
-        'password': settings['password'],
-        'delete': 'Удалить',
-        'reason': ''
-    }
-
-    response = requests.post(settings['post_addr'], data=data)
-    if not response:
-        print("Couldn't delete post:", response.status_code)
+        self._web_provider.delete_post(post)
 
 
 def _parse_thread(html):
