@@ -1,6 +1,6 @@
 import requests
 import json
-import re
+from post import Post
 
 from os.path import dirname, abspath
 from time import sleep
@@ -11,14 +11,6 @@ from html.parser import HTMLParser
 script_dir = dirname(abspath(__file__))
 settings_filename = f"{script_dir}/settings.json"
 rules_filename = f"{script_dir}/rules.json"
-
-
-class Post:
-    def __init__(self):
-        self.id = 0
-        self.name = ''
-        self.trip = ''
-        self.text = ''
 
 
 def load_settings():
@@ -37,9 +29,9 @@ def delete_post(post_id, settings):
         'reason': ''
     }
 
-    # response = requests.post(...)
-    # if not response: ... (залогировать?)
-    requests.post(settings['post_addr'], data=data)
+    response = requests.post(settings['post_addr'], data=data)
+    if not response:
+        print("Couldn't delete post:", response.status_code)
 
 
 def contain_values(attrs, req_attr_key, req_attr_values):
@@ -125,12 +117,8 @@ class Bot:
                 if self.is_post_allowed(post):
                     self.posts[post.id] = post
                 else:
+                    print("Trying to delete post: ", post)
                     self.delete_post(post)
-
-                #self.rules['last_post'] ...
-                # На 1 запуск, нет поддержки перезапуска
-                # Нет поддержки команд
-                # Оптимизация: не перебирать посты меньше определённого номера
 
     def is_post_allowed(self, post):
         if post.trip in self.rules['mods']:
@@ -157,6 +145,8 @@ def main():
             if response:
                 posts = parse_thread(response.content.decode("utf-8"))
                 bot.update_posts(posts)
+            else:
+                print("Couldn't load page:", response.status_code)
         except Exception as e:
             print(getattr(e, 'message', repr(e)))
 
