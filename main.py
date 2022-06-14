@@ -1,6 +1,5 @@
 import logging
 
-from traceback import format_tb
 from sys import exc_info
 from os.path import dirname, abspath
 from time import sleep
