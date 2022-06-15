@@ -26,9 +26,9 @@ def init_logger():
 def main():
     logger = init_logger()
 
-    web_provider = WebProvider()
     settings = JsonFile(settings_filename)
     rules = JsonFile(rules_filename)
+    web_provider = WebProvider(settings)
     bot = Bot(web_provider, rules, settings)
 
     print("Working...")

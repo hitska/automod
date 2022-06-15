@@ -1,9 +1,10 @@
-import requests
+from web_provider import WebProvider
+from json_file import JsonFile
 from thread_parser import ThreadParser
 
 
 class Bot:
-    def __init__(self, web_provider, rules, settings):
+    def __init__(self, web_provider: WebProvider, rules: JsonFile, settings: JsonFile):
         self._web_provider = web_provider
         self._settings = settings
         self._rules = rules
@@ -16,12 +17,15 @@ class Bot:
         self.update_posts(posts)
 
     def update_posts(self, posts):
+        posts_to_remove = []
         for post in posts:
             if post.id not in self._posts:
                 if self.is_post_allowed(post):
                     self._posts[post.id] = post
                 else:
-                    self.delete_post(post)
+                    posts_to_remove.append(post)
+
+        self.delete_posts(posts_to_remove)
 
     def is_post_allowed(self, post):
         if post.trip in self._rules['mods']:
@@ -32,8 +36,8 @@ class Bot:
             return True
         return False
 
-    def delete_post(self, post):
-        self._web_provider.delete_post(post)
+    def delete_posts(self, posts):
+        self._web_provider.delete_posts(posts)
 
 
 def _parse_thread(html):
