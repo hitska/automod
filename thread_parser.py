@@ -34,6 +34,9 @@ class ThreadParser(HTMLParser):
                     self.reading_attr = 'name'
                 if _contain_values(attrs, 'class', ['trip']):
                     self.reading_attr = 'trip'
+            if tag == 'div':
+                if _contain_values(attrs, 'class', ['body']):
+                    self.reading_attr = 'body'
 
     def handle_endtag(self, tag):
         if tag in self.counting_tags:
@@ -49,6 +52,8 @@ class ThreadParser(HTMLParser):
             self.post.name = data
         if self.reading_attr == 'trip':
             self.post.trip = data
+        if self.reading_attr == 'body':
+            self.post.text = data
 
 
 def _contain_values(attrs, req_attr_key, req_attr_values):
