@@ -1,14 +1,16 @@
+import bot_policy
+
 from web_provider import WebProvider
 from json_file import JsonFile
 from thread_parser import ThreadParser
 
 
 class Bot:
-    def __init__(self, web_provider: WebProvider, rules: JsonFile, settings: JsonFile):
+    def __init__(self, web_provider: WebProvider, settings: JsonFile):
         self._web_provider = web_provider
         self._settings = settings
-        self._rules = rules
         self._posts = {}
+        self._policy = bot_policy.get_policy(settings['bot_policy'])
 
     def update(self):
         thread_url = self._settings['thread']
@@ -25,19 +27,15 @@ class Bot:
                 else:
                     posts_to_remove.append(post)
 
-        self.delete_posts(posts_to_remove)
+        self._web_provider.delete_posts(posts_to_remove)
 
     def is_post_allowed(self, post):
-        if post.trip in self._rules['mods']:
+        # Ни при каких обстоятельствах не трогаем посты до этого включительно.
+        if post.id <= self._settings['rules']['skip_posts_before']:
             return True
-        if post.trip in self._rules['whitelist']:
-            return True
-        if post.id <= self._rules['last_post']:
-            return True
-        return False
 
-    def delete_posts(self, posts):
-        self._web_provider.delete_posts(posts)
+        policy = self._settings['bot_policy']
+        return self._policy.is_post_allowed(post, self._settings)
 
 
 def _parse_thread(html):

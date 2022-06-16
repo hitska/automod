@@ -1,6 +1,24 @@
 {
+    "moderators": ["!MwfsbzG3sA", "!vm/xN/kyP2", "!BakaRF.c.."],
+    "password": "бокочм0$----",
+
+    "bot_policy": "blacklist anonymous custom",
+    "rules": {
+        "skip_posts_before": 38778,
+        "whitelist": ["!dotakunQNI"],
+        "blacklist": ["!CIRNO/a4/o"],
+        "custom": [
+            {
+                "name": "Kokoko",
+                "trip": "!Kokoko",
+                "text": "Kokoko"
+            },
+            {
+                "text": ".*хуй.*"
+            }
+        ]
+    },
+
     "thread" : "https://spirech.org/rf/res/38059.html",
-    "post_addr" : "https://spirech.org/post.php",
-    "password": "бокочм0$",
     "timeout": 10
 }

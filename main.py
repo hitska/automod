@@ -10,7 +10,6 @@ from web_provider import WebProvider
 
 script_dir = dirname(abspath(__file__))
 settings_filename = f"{script_dir}/settings.json"
-rules_filename = f"{script_dir}/rules.json"
 
 
 def init_logger():
@@ -27,9 +26,8 @@ def main():
     logger = init_logger()
 
     settings = JsonFile(settings_filename)
-    rules = JsonFile(rules_filename)
     web_provider = WebProvider(settings)
-    bot = Bot(web_provider, rules, settings)
+    bot = Bot(web_provider, settings)
 
     print("Working...")
 
