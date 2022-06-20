@@ -50,8 +50,7 @@ class BotPolicyAnonimous:
     Трёт ананим лигивон.
     '''
     def is_post_allowed(self, post, settings):
-        # TODO: добавить аватарок картиночками
-        if not post.trip and not post.name:
+        if not post.trip and not post.images and post.name == 'Аноним':
             return False
         return True
 
@@ -61,7 +60,7 @@ class BotPolicyNotAnonimous:
     Трёт вниманиеблядей.
     '''
     def is_post_allowed(self, post, settings):
-        if post.trip or post.name:
+        if post.trip or post.name != 'Аноним':
             return False
         return True
 
