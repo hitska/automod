@@ -30,11 +30,6 @@ class Bot:
         self._web_provider.delete_posts(posts_to_remove)
 
     def is_post_allowed(self, post):
-        # Ни при каких обстоятельствах не трогаем посты до этого включительно.
-        if post.id <= self._settings['rules']['skip_posts_before']:
-            return True
-
-        policy = self._settings['bot_policy']
         return self._policy.is_post_allowed(post, self._settings)
 
 
