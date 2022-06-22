@@ -1,3 +1,4 @@
+import re
 from post import Post
 
 def get_policy(policy: str):
@@ -60,7 +61,7 @@ class BotPolicySaveByModList:
     '''
     Сейвит модераторов по их трипкодам.
     '''
-    def is_post_allowed(self, post, settings):
+    def is_post_allowed(self, post: Post, settings):
         if post.trip in settings['moderators']:
             return Resolution.CRITICAL_SAVE
 
@@ -76,7 +77,7 @@ class BotPolicySaveByWhiteList:
         self.names = None
         self.trips = None
 
-    def is_post_allowed(self, post, settings):
+    def is_post_allowed(self, post: Post, settings):
         if not self.names or not self.trips:
             self.names = set()
             self.trips = set()
@@ -102,7 +103,7 @@ class BotPolicyDelByBlackList:
         self.names = None
         self.trips = None
 
-    def is_post_allowed(self, post, settings):
+    def is_post_allowed(self, post: Post, settings):
         if not self.names or not self.trips:
             self.names = set()
             self.trips = set()
@@ -124,7 +125,7 @@ class BotPolicyDelAnonimous:
     Удаляет ананим лигивон, не трогает посты с картинками.
     Имеет низкий приоритет.
     '''
-    def is_post_allowed(self, post, settings):
+    def is_post_allowed(self, post: Post, settings):
         if not post.trip and not post.images and post.name == 'Аноним':
             return Resolution.REMOVE
 
@@ -136,7 +137,7 @@ class BotPolicyDelNotAnonimous:
     Удаляет вниманиеблядей, не трогает посты с картинками.
     Имеет низкий приоритет.
     '''
-    def is_post_allowed(self, post, settings):
+    def is_post_allowed(self, post: Post, settings):
         if post.trip or post.name != 'Аноним':
             return Resolution.REMOVE
 
@@ -148,10 +149,31 @@ class BotPolicyDelByRegexRules:
     Удаляет в соответствии с регексом в rules/regex.
     Имеет низкий приоритет.
     '''
-    def is_post_allowed(self, post, settings):
-        # TODO
-        if False:
-            return Resolution.REMOVE
+    def is_post_allowed(self, post: Post, settings):
+        pairs_to_check = [('name', post.name), ('trip', post.trip), ('text', post.text)]
+
+        for regex_set in settings['rules']['regex']:
+            matched = False
+
+            for pair in pairs_to_check:
+                param_name = pair[0]
+
+                if param_name not in regex_set:
+                    continue
+
+                param_value = pair[1]
+                param_regex = regex_set[param_name]
+                match = re.match(param_regex, param_value)
+
+                if match:
+                    matched = True
+                else:
+                    matched = False
+                    break
+
+            if matched:
+                return Resolution.REMOVE
+
         return Resolution.NO_RESOLUTION
 
 
@@ -160,7 +182,7 @@ class BotPolicyDelAll:
     Удаляет вообще всё.
     Имеет низкий приоритет.
     '''
-    def is_post_allowed(self, post, settings):
+    def is_post_allowed(self, post: Post, settings):
         return Resolution.REMOVE
 
 
@@ -171,7 +193,7 @@ class BotPolicyComposite:
     def add(self, policy):
         self.policies.append(policy)
 
-    def is_post_allowed(self, post, settings):
+    def is_post_allowed(self, post: Post, settings):
         final_resolution = Resolution.NO_RESOLUTION
 
         for policy in self.policies:
