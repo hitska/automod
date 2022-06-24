@@ -1,21 +1,18 @@
 import logging
 
 from sys import exc_info
-from os.path import dirname, abspath
 from time import sleep
 
 from bot import Bot
 from json_file import JsonFile
 from web_provider import WebProvider
-
-script_dir = dirname(abspath(__file__))
-settings_filename = f"{script_dir}/settings.json"
+from paths import paths
 
 
 def init_logger():
     logger = logging.getLogger()
     formatter = logging.Formatter("#### %(asctime)s — %(name)s — %(levelname)s — %(message)s ####")
-    handler = logging.FileHandler('log.txt', mode='w')
+    handler = logging.FileHandler(paths.filename_log, mode='w')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
@@ -25,7 +22,7 @@ def init_logger():
 def main():
     logger = init_logger()
 
-    settings = JsonFile(settings_filename)
+    settings = JsonFile(paths.filename_settings)
     web_provider = WebProvider(settings)
     bot = Bot(web_provider, settings)
 
@@ -44,4 +41,5 @@ def main():
         sleep(settings['timeout'])
 
 
-main()
+if __name__ == "__main__":
+    main()
