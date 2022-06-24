@@ -1,99 +1,153 @@
 import logging
-from time import sleep
+import subprocess
+import multiprocessing
+import docker
+
+from paths import paths
 from typing import List
-
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException
-
 from post import Post
-from json_file import JsonFile
+from named_pipe import NamedPipe
 
 
 class WebProvider:
-    def __init__(self, settings: JsonFile):
-        self._settings = settings
+    """
+    Делегирует запросы в докер-образ.
+    """
+    def __init__(self, settings):
         self._logger = logging.getLogger()
+        self._client = docker.from_env()
 
-        chrome_options = Options()
-        # Пытаемся отрубить загрузку картинок
-        prefs = { "profile.managed_default_content_settings.images": 2 }
-        chrome_options.add_experimental_option("prefs", prefs)
-        # А это необходимо чтобы он вообще запустился
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--headless')
+        self._image_tag = settings['docker-image-tag']
+        self._password = settings['password']
+        self._command_timeout = 20 # secs
 
-        self._browser = webdriver.Chrome(chrome_options=chrome_options)
+        self._build_image()
+        self._remove_old_containers()
+        self._create_container()
+        self._check_container_is_ok()
 
-        # Раз в определённое количество обновлений мы перезагружаем страницу на всякий случай.
-        self._page_update_counter = 0
-        self._page_update_max_count = 100
+    def _build_image(self):
+        """
+        Пересобираем образ контейнера.
+        """
+        self._notice(f'Rebuilding docker image "{self._image_tag}"...')
+
+        dockerfile_dir = str(paths.dirname_docker_image)
+        self._client.images.build(path=dockerfile_dir, tag=self._image_tag)
+
+        self._logger.info('The image is rebuilt')
+
+    def _remove_old_containers(self):
+        """
+        Останавливает и удаляет контейнеры от предыдущих запусков, если это требуется.
+        """
+        for container in self._client.containers.list():
+            container_is_ours = False
+            for tag in container.image.tags:
+                if self._image_tag in tag:
+                    container_is_ours = True
+                    break
+
+            if not container_is_ours:
+                continue
+
+            try:
+                self._logger.info(f'Trying to remove container {container.name}...')
+                try:
+                    container.kill()
+                    self._logger.info('Old container was stopped')
+                except docker.errors.APIError:
+                    self._logger.info('Old container is already stopped')
+                container.remove()
+                self._logger.info('Old container was removed')
+            except docker.errors.NotFound:
+                self._logger.info("Old container wasn't found")
+
+    def _create_container(self):
+        """
+        Создаёт и запускает контейнер.
+        """
+        container_pipe_in = "/tmp/in_pipe"
+        container_pipe_out = "/tmp/out_pipe"
+        host_pipe_in = "/tmp/in_pipe_1"
+        host_pipe_out = "/tmp/out_pipe_1"
+
+        self._logger.info(f'Creating pipes...')
+        self._vm1_pipe_response = NamedPipe(host_pipe_in)
+        self._vm1_pipe_request = NamedPipe(host_pipe_out)
+
+        self._logger.info(f'Creating container from "{self._image_tag}"...')
+        self._container = self._client.containers.run(
+            image=self._image_tag,
+            privileged=True,
+            detach=True,
+            volumes={
+                self._vm1_pipe_request.name: {
+                    'bind': container_pipe_in,
+                    'mode': 'rw'
+                },
+                self._vm1_pipe_response.name: {
+                    'bind': container_pipe_out,
+                    'mode': 'rw'
+                }
+            }
+        )
+
+        self._logger.info('The container is created')
+
+    def _check_container_is_ok(self):
+        """
+        Отсылает команду проверки статуса, проверяет результат.
+        """
+        result = self._execute_command('STATUS')
+        if result != 'OK':
+            raise Exception(f'Container STATUS check failed: "{result}"')
+
+    def _notice(self, message):
+        print(message)
+        self._logger.info(message)
+
+    def _execute_command(self, command):
+        """
+        Пытается выполнить команду до наступления таймаута, возвращает результат.
+        """
+        def implementation(cmd, resp_q):
+            self._logger.debug(f'Executing command: "{cmd}"')
+            self._vm1_pipe_request.write(cmd)
+            self._logger.debug('Command sent...')
+
+            response = self._vm1_pipe_response.read()
+            self._logger.debug(f'Received response: "{response}"')
+            resp_q.put(response)
+
+        queue = multiprocessing.Queue()
+        proc = multiprocessing.Process(target=implementation, args=(command, queue))
+        proc.start()
+        proc.join(self._command_timeout)
+
+        if proc.is_alive():
+            proc.kill()
+            proc.join()
+            raise Exception(f'Command execution timeout [{self._command_timeout}s] is reached for: "{command}"')
+
+        response = queue.get()
+        return response
 
     def get(self, url) -> str:
-        self._logger.info(f'Trying to load the page: {url}...')
-
-        try:
-            if url != self._browser.current_url or self._page_update_counter >= self._page_update_max_count:
-                self._page_update_counter = 0
-                self._browser.get(url)
-
-                # Отрубаем автообновление. Если элемент не найден - словим исключение.
-                auto_update_checkbox = self._browser.find_element(By.ID, "auto_update_status")
-                if auto_update_checkbox.is_selected():
-                    auto_update_checkbox.click()
-
-                self._logger.info(f'The page is successfully loaded')
-
-            else:
-                self._page_update_counter = self._page_update_counter + 1
-
-                updating_str = 'Обновление...'
-                update_status = self._browser.find_element(By.ID, "update_secs")
-                self._browser.execute_script(f"document.getElementById('update_secs').innerHTML='{updating_str}'")
-                update_button = self._browser.find_element(By.ID, "update_thread")
-                update_button.click()
-
-                # Ждём пока подсосёт новые посты.
-                max_tries = 20
-                for i in range(max_tries + 1):
-                    sleep(0.5)
-                    innerHTML = update_status.get_attribute('innerHTML')
-                    if innerHTML != updating_str:
-                        self._logger.info(f'The page is successfully updated')
-                        break
-                    if i == max_tries:
-                        self._logger.info(f"Can't update the page, reloading...")
-                        self._page_update_counter = self._page_update_max_count
-
-            return self._browser.page_source
-
-        except NoSuchElementException as e:
-            # Мы загрузили, но что-то не то.
-            # По идее, тут можно обработать ввод каптчи в Cloudflare, если причина именно в нём.
-            self._logger.warning(f'Failed page source: "{self._browser.page_source}"')
-            raise e
+        result = self._execute_command(f'GET {url}')
+        return 'TODO'
+        # TODO
+        pass
 
     def delete_posts(self, posts: List[Post]):
         if not posts:
             return
 
-        # Удаляем всех оптом.
+        cmd = f'DELETE {self._password}'
         for post in posts:
-            self._logger.info(f'Trying to delete post: {post}...')
+            self._logger.debug(f'Trying to delete post: {post}...')
+            cmd = cmd + ' ' + post.id
 
-            post_checkbox = self._browser.find_element(By.ID, f'delete_{post.id}')
-            if not post_checkbox.is_selected():
-                post_checkbox.click()
-
-        password_txtbox = self._browser.find_element(By.ID, 'password')
-        password_txtbox.clear()
-        password_txtbox.send_keys(self._settings['password'])
-
-        self._browser.find_element(By.NAME, 'delete').click()
-
-        # Перезагружаем страницу при следующем обновлении, чтобы удалённые посты исчезли из html.
-        self._page_update_counter = self._page_update_max_count
-        # Дадим скриптам время на удаление.
-        # Когда-нибудь, возможно, я перепишу ожидание удаления нормально...
-        sleep(0.5)
+        result = self._execute_command(cmd)
+        # TODO
+        pass
