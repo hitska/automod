@@ -22,3 +22,12 @@ RUN wget --no-verbose -O /tmp/chromedriver.zip https://chromedriver.storage.goog
     && unzip /tmp/chromedriver.zip -d /tmp                                                                                            \
     && mv /tmp/chromedriver /usr/bin/chromedriver                                                                                     \
     && rm /tmp/chromedriver.zip
+
+WORKDIR /tmp/client
+RUN chmod 0777 /tmp
+COPY imageboard.py .
+COPY container_main.py .
+COPY named_pipe.py .
+
+# -u == unbuffered output
+ENTRYPOINT  ["python3", "-u", "container_main.py"]
