@@ -46,9 +46,9 @@ class Resolution:
 
 
 class BotPolicySaveByPostNumber:
-    '''
+    """
     Сейвит посты, номера которых запрещено удалять.
-    '''
+    """
     def is_post_allowed(self, post, settings):
         # Ни при каких обстоятельствах не трогаем посты до этого включительно
         if post.id <= settings['rules']['skip_posts_before']:
@@ -58,9 +58,9 @@ class BotPolicySaveByPostNumber:
 
 
 class BotPolicySaveByModList:
-    '''
+    """
     Сейвит модераторов по их трипкодам.
-    '''
+    """
     def is_post_allowed(self, post: Post, settings):
         if post.trip in settings['moderators']:
             return Resolution.CRITICAL_SAVE
@@ -69,10 +69,10 @@ class BotPolicySaveByModList:
 
 
 class BotPolicySaveByWhiteList:
-    '''
+    """
     Сейвит "белый список" трипкодов или имён.
     Имеет более высокий приоритет, чем операции удаления, поэтому работает как список исключений.
-    '''
+    """
     def __init__(self):
         self.names = None
         self.trips = None
@@ -95,9 +95,9 @@ class BotPolicySaveByWhiteList:
 
 
 class BotPolicyDelByBlackList:
-    '''
+    """
     Удаляет "чёрный список" трипкодов или имён.
-    '''
+    """
 
     def __init__(self):
         self.names = None
@@ -121,10 +121,10 @@ class BotPolicyDelByBlackList:
 
 
 class BotPolicyDelAnonimous:
-    '''
+    """
     Удаляет ананим лигивон, не трогает посты с картинками.
     Имеет низкий приоритет.
-    '''
+    """
     def is_post_allowed(self, post: Post, settings):
         if not post.trip and not post.images and post.name == 'Аноним':
             return Resolution.REMOVE
@@ -133,10 +133,10 @@ class BotPolicyDelAnonimous:
 
 
 class BotPolicyDelNotAnonimous:
-    '''
+    """
     Удаляет вниманиеблядей, не трогает посты с картинками.
     Имеет низкий приоритет.
-    '''
+    """
     def is_post_allowed(self, post: Post, settings):
         if post.trip or post.name != 'Аноним':
             return Resolution.REMOVE
@@ -145,10 +145,10 @@ class BotPolicyDelNotAnonimous:
 
 
 class BotPolicyDelByRegexRules:
-    '''
+    """
     Удаляет в соответствии с регексом в rules/regex.
     Имеет низкий приоритет.
-    '''
+    """
     def is_post_allowed(self, post: Post, settings):
         pairs_to_check = [('name', post.name), ('trip', post.trip), ('text', post.text)]
 
@@ -178,10 +178,10 @@ class BotPolicyDelByRegexRules:
 
 
 class BotPolicyDelAll:
-    '''
+    """
     Удаляет вообще всё.
     Имеет низкий приоритет.
-    '''
+    """
     def is_post_allowed(self, post: Post, settings):
         return Resolution.REMOVE
 
