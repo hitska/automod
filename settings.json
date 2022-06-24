@@ -1,7 +1,7 @@
 {
-    "moderators": ["!MwfsbzG3sA", "!vm/xN/kyP2", "!BakaRF.c.."],
-    "password": "бокочм0$----",
+    "docker-image-tag": "automod-image",
 
+    "moderators": ["!MwfsbzG3sA", "!vm/xN/kyP2", "!BakaRF.c.."],
     "bot_policy": "whitelist blacklist regex",
     "rules": {
         "skip_posts_before": 38778,
@@ -20,5 +20,6 @@
     },
 
     "thread" : "https://spirech.org/rf/res/38059.html",
+    "password": "бокочм0$----",
     "timeout": 10
 }
