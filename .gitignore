@@ -1,4 +1,5 @@
-.idea
+.idea/
+tmp/
 log.txt
 __pycache__
 
