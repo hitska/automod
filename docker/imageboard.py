@@ -48,7 +48,7 @@ class Imageboard:
                 update_status = self._browser.find_element(By.ID, "update_secs")
                 self._browser.execute_script(f"document.getElementById('update_secs').innerHTML='{updating_str}'")
                 update_button = self._browser.find_element(By.ID, "update_thread")
-                update_button.click()
+                self._browser.execute_script("arguments[0].click();", update_button)
 
                 # Ждём пока подсосёт новые посты.
                 max_tries = 20
@@ -75,13 +75,14 @@ class Imageboard:
         for post_id in posts:
             post_checkbox = self._browser.find_element(By.ID, f'delete_{post_id}')
             if not post_checkbox.is_selected():
-                post_checkbox.click()
+                self._browser.execute_script("arguments[0].click();", post_checkbox)
 
         password_txtbox = self._browser.find_element(By.ID, 'password')
         password_txtbox.clear()
         password_txtbox.send_keys(password)
 
-        self._browser.find_element(By.NAME, 'delete').click()
+        delete_button = self._browser.find_element(By.NAME, 'delete')
+        self._browser.execute_script("arguments[0].click();", delete_button)
 
         # Перезагружаем страницу при следующем обновлении, чтобы удалённые посты исчезли из html.
         self._page_update_counter = self._page_update_max_count
