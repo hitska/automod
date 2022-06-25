@@ -20,10 +20,10 @@ class NamedPipe:
         return command
 
     def write(self, string):
-        pipe = open(self.name, "w")
-        pipe.write(string)
-        pipe.flush()
-        pipe.close()
+        with open(self.name, "w") as pipe:
+            pipe.write(string)
+            pipe.flush()
+            pipe.close()
 
     @staticmethod
     def _create_named_pipe(name):
