@@ -1,5 +1,4 @@
 import logging
-import subprocess
 import multiprocessing
 import docker
 
@@ -20,6 +19,8 @@ class WebProvider:
         self._image_tag = settings['docker-image-tag']
         self._password = settings['password']
         self._command_timeout = 20 # secs
+        self._tmp_files = paths.tmp_dir
+        self._vm1_host_exchange_file = str(self._tmp_files / 'exchange.bin')
 
         self._build_image()
         self._remove_old_containers()
@@ -42,14 +43,14 @@ class WebProvider:
         Останавливает и удаляет контейнеры от предыдущих запусков, если это требуется.
         """
         for container in self._client.containers.list():
-            container_is_ours = False
-            for tag in container.image.tags:
-                if self._image_tag in tag:
-                    container_is_ours = True
-                    break
-
-            if not container_is_ours:
-                continue
+            # container_is_ours = False
+            # for tag in container.image.tags:
+            #     if self._image_tag in tag:
+            #         container_is_ours = True
+            #         break
+            #
+            # if not container_is_ours:
+            #     continue
 
             try:
                 self._logger.info(f'Trying to remove container {container.name}...')
@@ -67,6 +68,7 @@ class WebProvider:
         """
         Создаёт и запускает контейнер.
         """
+        container_exchange_file = "/tmp/files/exchange.bin"
         container_pipe_in = "/tmp/in_pipe"
         container_pipe_out = "/tmp/out_pipe"
         host_pipe_in = "/tmp/in_pipe_1"
@@ -88,6 +90,10 @@ class WebProvider:
                 },
                 self._vm1_pipe_response.name: {
                     'bind': container_pipe_out,
+                    'mode': 'rw'
+                },
+                self._tmp_files: {
+                    'bind': '/tmp/files',
                     'mode': 'rw'
                 }
             }
@@ -135,9 +141,11 @@ class WebProvider:
 
     def get(self, url) -> str:
         result = self._execute_command(f'GET {url}')
-        return 'TODO'
-        # TODO
-        pass
+        if result != 'DONE':
+            raise Exception(f'GET command result check failed: "{result}"')
+        with open(self._vm1_host_exchange_file, "r") as file:
+            html = file.read()
+        return html
 
     def delete_posts(self, posts: List[Post]):
         if not posts:
@@ -146,8 +154,8 @@ class WebProvider:
         cmd = f'DELETE {self._password}'
         for post in posts:
             self._logger.debug(f'Trying to delete post: {post}...')
-            cmd = cmd + ' ' + post.id
+            cmd = cmd + ' ' + str(post.id)
 
         result = self._execute_command(cmd)
-        # TODO
-        pass
+        if result != 'DONE':
+            raise Exception(f'DELETE command result check failed: "{result}"')
